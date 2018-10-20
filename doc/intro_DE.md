@@ -154,6 +154,59 @@ Wieder wird die Signatur mit dem *excess value* (in diesem Beispiel 97) erstellt
 
 ##### Range Proofs
 
+In all den oben genannten Berechnungen verlassen wir uns darauf, dass die Transaktionsbeträge immer positiv sind. Die Verwendung negativer Beträge wäre äußerst problematisch da man dadurch bei jeder Transaktion neues Geld aus dem Nichts erzeugen könnte.
+
+Zum Beispiel könnte man eine Transaktion mit einem Input von 2 und den Outputs von 5 und -3 erstellen und würde so eine ausbalancierte, gültige Transaktion (Nullsumme) erhalten. Dies ist besonders problematisch, da es nicht einfach erkannt werden. Selbst wenn der Wert _x_ negativ ist, sieht der entsprechende elliptische Kurvenpunkt `x*H` aus wie jeder andere aus.
+
+Um dieses Problem zu lösen, verwendet MimbleWimble das kryptographisches Konzept der sogenannten Range Proofs (auch aus Confidential Transactions). Ein Range Proof nennt man einen Beweis dafür, dass eine Zahl in einen bestimmten Bereich fällt, ohne dabei die Zahl zu enthüllen. Wir werden an dieser Stelle nicht näher auf Range Proofs eingehen. Es reicht lediglich zu wissen, dass man für jedes `r.G + v.H` einen Beweis konstruieren kann, der zeigt, dass der Wert _v_ größer als Null ist und nicht über den möglichen Zahlenbereich hinausgeht.
+
+Es sei angemerkt, dass zur Erstellung eines solchen Range Proofs beide Werte 113 und 28 aus dem obigen Beispiel bekannt sein müssen. Den Grund dafür, sowie eine detailliertere Beschreibung von Range Proofs findet man in folgendem [Range Proof Paper](https://eprint.iacr.org/2017/1066.pdf).
+
 #### Zusammenfassung
 
+Eine MimbleWimble-Transaktion besteht aus Folgendem:
+
+* Eine Reihe von Inputs, die eine Reihe von früheren Outputs referenzieren und ausgeben.
+* Eine Reihe neuer Outputs, die folgendes enthalten:
+  * Einen Betrag _v_ und ein Blinding-Faktor _r_ (der nur ein neuer privater Schlüssel ist) multipliziert mit einer Kurve und summiert zu `r*G + v*H`.
+  * Einen Range Proof, der zeigt, dass _v_ nicht negativ ist.
+* Eine explizite Transaktionsgebühr im Klartext.
+* Eine Signatur, die generiert wird indem man den Exess-Blinding-Faktor-Wert (Summe aller Outputs plus Transaktionsgebühr minus die Summe der Inputs) als privaten Schlüssel verwendet.
+
 ### MimbleWimble Blöcke und Blockchain-Status
+
+Wir haben oben erklärt, weshalb MimbleWimble-Transaktionen starke Anonymität garantieren können und gleichzeitig die Eigenschaften für eine gültige
+Blockchain, d.h. eine Transaktion erzeugt kein Geld und Eigentumsnachweise
+werden durch den Besitz privater Schlüssel sichergestellt, beibehalten können.
+
+Das MimbleWimble-Blockformat nutzt den Aufbau der Transaktionen aus um ein weiteres Konzept einzuführen: _cut-through_. Mit diesem Zusatz erhält eine MimbleWimble-Blockchain:
+
+* Sehr gute Skalierbarkeit, da ein Großteil der Transaktionsdaten im Laufe der Zeit aus der Blockchain entfernt werden können, ohne dabei die Sicherheit der Blockchain zu gefährden.
+* Weitere Anonymität durch das Vermischen und Entfernen von Transaktionsdaten.
+* Und die Fähigkeit für neue Knoten, sich sehr effizient mit dem Rest des Netzwerks zu synchronisieren.
+
+#### Aggregation von Transaktionen 
+
+Zu Wiederholung; Transaktionen besteht aus:
+
+* Einer Menge von Inputs, die auf eine Reihe von vorherigen Outputs verweisen und diese ausgeben
+* Einer Reihe neuer Outputs (Pedersen-Commitments)
+* einem _Transaction-Kernel_, bestehend aus
+  * _Kernel-Excess_ (Pedersen-Commitment für die Nullsumme)
+  * Signatur (Verwendung des Kernel-Excess als öffentlicher Schlüssel)
+
+Ein Transaktion ist signiert und diese Signatur ist im _Transaction Kernel_ enthalten. Die Signatur wird generiert, indem der _Kernel-Excess_ als öffentlicher Schlüssel verwendet wird, um zu beweisen, dass die Transaktion ausbalanciet ist und eine Nullsumme ergibt.
+
+    (42*G + 1*H) + (99*G + 2*H) - (113*G + 3*H) = 28*G + 0*H
+
+Der öffentliche Schlüssel aus diesem Beispiel ist `28*G`.
+
+Wir können sagen, dass das Folgende für jede gültige Transaktion gilt (Transaktionsgebühren werden zur Einfachheit ignoriert):
+
+    Summe(outputs) - Summe(inputs) = kernel_excess
+
+Gleiches gilt auch für Blöcke, die aus mehreren Transaktionen bestehen. Blöcke sind nämlich auch einfach nur eine Reihe von aggregierten Inputs, Outputs und Transaction-Kernel. Wir können alle Outputs summieren, die Summe der Inputs subtrahieren und das resultierende Pedersen-Commitment mit der Summe der Kernel-Excess-Werte vergleichen:
+
+    Summe(outputs) - Summe(inputs) = Summe(kernel_excess)
+
+MimbleWimble-Blöcke können Vereinfacht gesagt (Transaktionsgebühren werden wieder zur Einfachheit ignoriert) genau wie MimbleWimble-Transaktionen behandelt werden.
